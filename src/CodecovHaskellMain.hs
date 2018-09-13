@@ -39,6 +39,9 @@ getUrlWithToken :: String -> String -> Maybe String -> IO String
 getUrlWithToken apiUrl _ Nothing = return apiUrl
 getUrlWithToken apiUrl param (Just t) = return $ apiUrl ++ "&" ++ param ++ "=" ++ t
 
+getUrlWithFlags :: String -> [String] -> IO String
+getUrlWithFlags apiUrl flags = return $ apiUrl ++ "&flags=" ++ intercalate "," flags
+
 getConfig :: CodecovHaskellArgs -> Maybe Config
 getConfig cha = do _testSuites <- listToMaybe (testSuites cha)
                    return Config { Config.excludedDirs = excludeDirs cha
@@ -58,7 +61,9 @@ main = do
             unless (dontSend cha) $ do
                 apiUrl <- getUrlApiV2
                 fullUrl <- getUrlWithToken apiUrl "token" (token cha)
-                response <- postJson (BSL.unpack $ encode codecovJson) fullUrl (printResponse cha)
+                let flags = ["backend"]
+                urlWFlags <- getUrlWithFlags apiUrl flags
+                response  <- postJson (BSL.unpack $ encode codecovJson) urlWFlags (printResponse cha)
                 case response of
                     PostSuccess url _ -> do
                         responseUrl <- getUrlWithToken url "access_token" (accessToken cha)

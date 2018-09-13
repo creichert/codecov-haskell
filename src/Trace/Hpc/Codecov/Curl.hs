@@ -15,6 +15,7 @@ module Trace.Hpc.Codecov.Curl ( postJson, readCoverageResult, PostResult (..) ) 
 import           Control.Applicative
 import           Control.Monad
 import           Control.Retry
+import Data.Monoid
 import           Data.Aeson
 import           Data.Aeson.Types (parseMaybe)
 import qualified Data.ByteString.Lazy.Char8 as LBS
@@ -52,7 +53,7 @@ expRetryPolicy :: RetryPolicy
 expRetryPolicy = exponentialBackoff (10 * 1000 * 1000) <> limitRetries 3
 
 performWithRetry :: IO (Maybe a) -> IO (Maybe a)
-performWithRetry = retrying expRetryPolicy isNothingM
+performWithRetry = retrying expRetryPolicy isNothingM . const
     where isNothingM _ = return . isNothing
 
 extractCoverage :: String -> Maybe String
