@@ -27,7 +27,7 @@ parseResponse :: CurlResponse -> PostResult
 parseResponse r = case respCurlCode r of
     CurlOK -> PostSuccess (getField "url") (getField "wait_url")
     _      -> PostFailure $ getField "message"
-    where getField fieldName = fromJust $ mGetField fieldName
+    where getField = fromMaybe (error (respBody r)) . mGetField
           mGetField fieldName = do
               result <- decode $ LBS.pack (respBody r)
               parseMaybe (.: fieldName) result
@@ -42,7 +42,10 @@ postJson jsonCoverage url printResponse = do
     setopt h (CurlPost True)
     setopt h (CurlVerbose True)
     setopt h (CurlURL url)
-    setopt h (CurlHttpHeaders ["Content-Type: application/json"])
+    setopt h (CurlHttpHeaders [
+                "Content-Type: application/json"
+              -- , "Accept: application/json"
+              ])
     setopt h (CurlPostFields [jsonCoverage])
     r <- perform_with_response_ h
     when printResponse $ putStrLn $ respBody r

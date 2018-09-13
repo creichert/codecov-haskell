@@ -62,7 +62,7 @@ main = do
                 apiUrl <- getUrlApiV2
                 fullUrl <- getUrlWithToken apiUrl "token" (token cha)
                 let flags = ["backend"]
-                urlWFlags <- getUrlWithFlags apiUrl flags
+                urlWFlags <- getUrlWithFlags fullUrl flags
                 response  <- postJson (BSL.unpack $ encode codecovJson) urlWFlags (printResponse cha)
                 case response of
                     PostSuccess url _ -> do
