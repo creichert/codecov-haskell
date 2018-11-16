@@ -1,5 +1,6 @@
 module Main where
 
+import           CodecovHaskellCmdLine
 import           Control.Applicative
 import           Control.Concurrent
 import           Control.Monad
@@ -7,12 +8,11 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.List
 import           Data.Maybe hiding (listToMaybe)
-import           CodecovHaskellCmdLine
 import           System.Console.CmdArgs
 import           System.Environment (getEnv, getEnvironment)
 import           System.Exit (exitFailure, exitSuccess)
 import           Trace.Hpc.Codecov
-import           Trace.Hpc.Codecov.Config (Config(Config))
+import           Trace.Hpc.Codecov.Config (Config (Config))
 import qualified Trace.Hpc.Codecov.Config as Config
 import           Trace.Hpc.Codecov.Curl
 import           Trace.Hpc.Codecov.Util
@@ -35,12 +35,12 @@ getUrlApiV2 = do
            ("JENKINS_HOME", (("job", "BUILD_NUMBER"), "GIT_COMMIT", "GIT_BRANCH")),
            ("CIRCLECI", (("job", "CIRCLE_BUILD_NUM"), "CIRCLE_SHA1", "CIRCLE_BRANCH"))]
 
-getUrlWithToken :: String -> String -> Maybe String -> IO String
-getUrlWithToken apiUrl _ Nothing = return apiUrl
-getUrlWithToken apiUrl param (Just t) = return $ apiUrl ++ "&" ++ param ++ "=" ++ t
+getUrlWithToken :: String -> Maybe String -> String -> String
+getUrlWithToken _ Nothing url      = url
+getUrlWithToken param (Just t) url = url ++ "&" ++ param ++ "=" ++ t
 
-getUrlWithFlags :: String -> [String] -> IO String
-getUrlWithFlags apiUrl flags = return $ apiUrl ++ "&flags=" ++ intercalate "," flags
+getUrlWithFlags :: [String] -> String -> String
+getUrlWithFlags flags url = url ++ "&flags=" ++ intercalate "," flags
 
 getConfig :: CodecovHaskellArgs -> Maybe Config
 getConfig cha = do _testSuites <- listToMaybe (testSuites cha)
@@ -60,18 +60,25 @@ main = do
             when (displayReport cha) $ BSL.putStrLn $ encode codecovJson
             unless (dontSend cha) $ do
                 apiUrl <- getUrlApiV2
-                fullUrl <- getUrlWithToken apiUrl "token" (token cha)
+
                 let flags = ["backend"]
-                urlWFlags <- getUrlWithFlags fullUrl flags
-                response  <- postJson (BSL.unpack $ encode codecovJson) urlWFlags (printResponse cha)
+
+                let fullUrl = getUrlWithToken "token" (token cha)
+                            $ getUrlWithFlags flags apiUrl
+
+                response  <- postJson (BSL.unpack $ encode codecovJson) fullUrl (printResponse cha)
                 case response of
                     PostSuccess url _ -> do
-                        responseUrl <- getUrlWithToken url "access_token" (accessToken cha)
+                        putStrLn ("URL: " ++ url )
+{- TODO
+                        let responseUrl = getUrlWithToken "access_token" (accessToken cha)
                         putStrLn ("URL: " ++ responseUrl)
                         -- wait 10 seconds until the page is available
                         threadDelay (10 * 1000000)
+
                         coverageResult <- readCoverageResult responseUrl (printResponse cha)
                         case coverageResult of
                             Just totalCoverage -> putStrLn ("Coverage: " ++ totalCoverage) >> exitSuccess
                             Nothing -> putStrLn "Failed to read total coverage" >> exitSuccess
+-}
                     PostFailure msg -> putStrLn ("Error: " ++ msg) >> exitFailure
